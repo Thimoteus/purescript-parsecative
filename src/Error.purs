@@ -2,20 +2,22 @@ module Parsecative.Error where
 
 import Prelude
 
-import Control.Monad.Transformerless.Except (Except)
+import Control.Monad.Except (ExceptT)
 import Data.Array.NonEmpty as NEA
 import Data.Either (Either)
+import Data.Identity (Identity)
 import Data.List (List)
 import Data.List.Lazy as L
 import Data.List.Lazy.Types as NELL
 import Data.List.Types as NEL
+import Data.Monoid (class Monoid)
 import Data.Tuple (Tuple)
 
 class ParserError e where
   fromString :: String -> e
 
 instance parserErrorString :: ParserError String where
-  fromString = identity
+  fromString = id
 
 instance parserErrorList :: ParserError e => ParserError (List e) where
   fromString = applicativeParserError
@@ -44,7 +46,7 @@ instance parserErrorEither :: ParserError b => ParserError (Either a b) where
 instance parserErrorFunction :: ParserError b => ParserError ((->) a b) where
   fromString = applicativeParserError
 
-instance parserErrorExcept :: ParserError b => ParserError (Except e b) where
+instance parserErrorExcept :: ParserError b => ParserError (ExceptT e Identity b) where
   fromString = applicativeParserError
 
 instance parserErrorUnit :: ParserError Unit where
