@@ -4,7 +4,6 @@ module Parsecative
   , exec
   , withError
   , withState
-  , liftEffect
   ) where
 
 import Prelude
@@ -12,9 +11,7 @@ import Prelude
 import Control.Alt (class Alt)
 import Control.Alternative (class Alternative)
 import Control.Apply (lift2)
-import Control.Lazy (class Lazy)
-import Control.Monad.Transformerless.Cont (Cont(..), runCont)
-import Control.Monad.Transformerless.Reader (Reader)
+import Control.Monad.Cont (ContT(..), runContT)
 import Control.Plus (class Plus)
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..))
@@ -22,16 +19,14 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Validation.Semigroup (V, unV, invalid)
 import Effect (Effect)
+import Effect.Class (liftEffect)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Parsecative.Error (class ParserError, fromString)
 
 newtype Parsecative e s a =
   Parsecative
-    (Reader (Ref s) (Cont (Effect Unit) (V e a)))
-
-liftEffect :: ∀ a. Effect a -> Cont (Effect Unit) a
-liftEffect eff = Cont (_ =<< eff)
+    (Ref s -> ContT Unit Effect (V e a))
 
 derive instance newtypeParsecative :: Newtype (Parsecative e s a) _
 
@@ -46,7 +41,7 @@ instance applyParsecative :: Semigroup e => Apply (Parsecative e s) where
       in ab <*> a
 
 instance applicativeParsecative :: Semigroup e => Applicative (Parsecative e s) where
-  pure x = Parsecative \_ -> Cont (_ $ pure x)
+  pure x = Parsecative \_ -> ContT (_ $ pure x)
 
 -- | The `Alt` instance runs two parsers in parallel. If the first succeeds, its result is
 -- | used and the second's is discarded. If the first fails, the second one is used.
@@ -55,7 +50,7 @@ instance applicativeParsecative :: Semigroup e => Applicative (Parsecative e s) 
 instance altParsecative :: Semigroup e => Alt (Parsecative e s) where
   alt (Parsecative pa) (Parsecative pb) =
     Parsecative \ref ->
-      Cont \cb -> do
+      ContT \cb -> do
         -- Copy the stream so we're not concurrently mutating the same stream
         stream <- Ref.read ref
         ref' <- Ref.new stream
@@ -63,7 +58,7 @@ instance altParsecative :: Semigroup e => Alt (Parsecative e s) where
         -- Set the first parser's success state to "indeterminate"
         successRef <- Ref.new Nothing
 
-        runCont (pa ref) \ea ->
+        runContT (pa ref) \ea ->
           unV
             (\_ -> do
               Ref.write (Just false) successRef
@@ -74,7 +69,7 @@ instance altParsecative :: Semigroup e => Alt (Parsecative e s) where
             )
             ea
 
-        runCont (pb ref') \eb ->
+        runContT (pb ref') \eb ->
           let
             go = do
               done <- Ref.read successRef
@@ -85,7 +80,7 @@ instance altParsecative :: Semigroup e => Alt (Parsecative e s) where
           in go
 
 instance plusParsecative :: (Semigroup e, ParserError e) => Plus (Parsecative e s) where
-  empty = Parsecative \_ -> Cont (_ $ invalid (fromString "empty called"))
+  empty = Parsecative \_ -> ContT (_ $ invalid (fromString "empty called"))
 
 instance alternativeParsecative :: (Semigroup e, ParserError e) => Alternative (Parsecative e s)
 
@@ -95,13 +90,6 @@ instance semigroupParsecative :: (Semigroup e, Semigroup a) => Semigroup (Parsec
 instance monoidParsecative :: (Semigroup e, Monoid a) => Monoid (Parsecative e s a) where
   mempty = pure mempty
 
-instance lazyParsecative :: Lazy (Parsecative e s a) where
-  defer f =
-    Parsecative \ref ->
-      Cont \cb ->
-        case f unit of
-          Parsecative p -> runCont (p ref) cb
-
 -- | Run a parser given an initial stream and a continuation.
 parse :: ∀ e s a. Parsecative e s a -> s -> (Either e a -> Effect Unit) -> Effect Unit
 parse p stream cb = exec p stream \ea _ -> cb ea
@@ -109,7 +97,7 @@ parse p stream cb = exec p stream \ea _ -> cb ea
 exec :: ∀ e s a. Parsecative e s a -> s -> (Either e a -> s -> Effect Unit) -> Effect Unit
 exec (Parsecative p) stream cb = do
   streamRef <- Ref.new stream
-  runCont (p streamRef) \ea -> do
+  runContT (p streamRef) \ea -> do
     str <- Ref.read streamRef
     cb (unV Left Right ea) str
 

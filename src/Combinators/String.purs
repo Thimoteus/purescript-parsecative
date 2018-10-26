@@ -9,9 +9,10 @@ import Data.String (CodePoint)
 import Data.String as String
 import Data.String.CodeUnits as CodeUnits
 import Data.Validation.Semigroup (invalid)
+import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import Global (readFloat)
-import Parsecative (Parsecative(..), liftEffect)
+import Parsecative (Parsecative(..))
 import Parsecative.Combinators (fromChars, (<?>), (|=))
 import Parsecative.Combinators as C
 import Parsecative.Combinators.List (some)

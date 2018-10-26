@@ -3,7 +3,7 @@ module Parsecative.Combinators where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Monad.Transformerless.Cont (Cont(..))
+import Control.Monad.Cont (ContT(..))
 import Data.Either (Either(..))
 import Data.Foldable (class Foldable, foldMap)
 import Data.Maybe (Maybe(..))
@@ -11,8 +11,9 @@ import Data.String (CodePoint)
 import Data.String as String
 import Data.String.CodeUnits as CodeUnits
 import Data.Validation.Semigroup (invalid, unV)
+import Effect.Class (liftEffect)
 import Effect.Ref as Ref
-import Parsecative (Parsecative(..), liftEffect)
+import Parsecative (Parsecative(..))
 import Parsecative.Error (class ParserError, fromString)
 
 ----------------------------------
@@ -20,7 +21,7 @@ import Parsecative.Error (class ParserError, fromString)
 ----------------------------------
 
 fail :: ∀ e s a. e -> Parsecative e s a
-fail e = Parsecative \_ -> Cont (_ $ invalid e)
+fail e = Parsecative \_ -> ContT (_ $ invalid e)
 
 orFailWith :: ∀ e s a. Semigroup e => Parsecative e s a -> e -> Parsecative e s a
 orFailWith p e = p <|> fail e

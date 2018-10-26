@@ -2,7 +2,6 @@ module Parsecative.Error where
 
 import Prelude
 
-import Control.Monad.Transformerless.Except (Except)
 import Data.Array.NonEmpty as NEA
 import Data.Either (Either)
 import Data.List (List)
@@ -42,9 +41,6 @@ instance parserErrorEither :: ParserError b => ParserError (Either a b) where
   fromString = applicativeParserError
 
 instance parserErrorFunction :: ParserError b => ParserError ((->) a b) where
-  fromString = applicativeParserError
-
-instance parserErrorExcept :: ParserError b => ParserError (Except e b) where
   fromString = applicativeParserError
 
 instance parserErrorUnit :: ParserError Unit where

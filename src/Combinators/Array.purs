@@ -9,9 +9,10 @@ import Data.Int as Int
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.Validation.Semigroup (invalid, unV)
+import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import Global (isFinite, isNaN, readFloat)
-import Parsecative (Parsecative(..), liftEffect)
+import Parsecative (Parsecative(..))
 import Parsecative.Combinators ((|=))
 import Parsecative.Combinators as C
 import Parsecative.Error (class ParserError, fromString)
