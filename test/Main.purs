@@ -9,7 +9,7 @@ import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Console (log)
 import Parsecative (Parsecative, parse)
-import Parsecative.Combinators (char, int, unconsString')
+import Parsecative.Combinators.String (char, int, uncons')
 import Parsecative.Error (class ParserError)
 
 newtype ParserError = ParserError Unit
@@ -21,9 +21,9 @@ derive newtype instance parserError :: ParserError ParserError
 couple :: Char -> Char -> Parsecative ParserError String (Tuple Char Char)
 couple open close = ado
   char open
-  fst <- unconsString'
+  fst <- uncons'
   char ','
-  snd <- unconsString'
+  snd <- uncons'
   char close
   in Tuple fst snd
 
