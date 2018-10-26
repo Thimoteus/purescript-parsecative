@@ -17,6 +17,7 @@ import Data.Bifunctor (lmap)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
+import Data.Profunctor (class Profunctor)
 import Data.Validation.Semigroup (V, unV, invalid)
 import Effect (Effect)
 import Effect.Class (liftEffect)
@@ -90,6 +91,13 @@ instance semigroupParsecative :: (Semigroup e, Semigroup a) => Semigroup (Parsec
 instance monoidParsecative :: (Semigroup e, Monoid a) => Monoid (Parsecative e s a) where
   mempty = pure mempty
 
+instance profunctorParsecative :: Profunctor (Parsecative e) where
+  dimap f g (Parsecative pa) = Parsecative \ref -> do
+    str <- liftEffect $ Ref.read ref
+    let str' = f str
+    newRef <- liftEffect $ Ref.new str'
+    map g <$> pa newRef
+
 -- | Run a parser given an initial stream and a continuation.
 parse :: ∀ e s a. Parsecative e s a -> s -> (Either e a -> Effect Unit) -> Effect Unit
 parse p stream cb = exec p stream \ea _ -> cb ea
@@ -104,8 +112,10 @@ exec (Parsecative p) stream cb = do
 withError :: ∀ e e' s a. (e -> e') -> Parsecative e s a -> Parsecative e' s a
 withError f (Parsecative pa) = Parsecative (map (lmap f) <<< pa)
 
-withState :: ∀ e s a. (s -> s) -> Parsecative e s a -> Parsecative e s a
+withState :: ∀ e s s' a. (s' -> s) -> Parsecative e s a -> Parsecative e s' a
 withState f (Parsecative p) =
   Parsecative \ref -> do
-    liftEffect $ Ref.modify_ f ref
-    p ref
+    str <- liftEffect $ Ref.read ref
+    let str' = f str
+    newRef <- liftEffect $ Ref.new str'
+    p newRef
